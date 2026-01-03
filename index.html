@@ -2,82 +2,77 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dynamic Directory ZIP Generator</title>
-    <!-- Core Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Folder ZIP</title>
     <script src="cdnjs.cloudflare.com"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background: #f4f7f6; color: #333; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { margin-top: 0; color: #2c3e50; }
-        textarea { width: 100%; height: 400px; font-family: 'Courier New', Courier, monospace; padding: 15px; border: 2px solid #ddd; border-radius: 5px; resize: vertical; box-sizing: border-box; }
-        .controls { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
-        button { padding: 12px 25px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+        textarea { width: 100%; height: 300px; font-family: monospace; margin-bottom: 1rem; padding: 10px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; }
         button:hover { background: #0056b3; }
-        .hint { font-size: 0.9em; color: #666; margin-bottom: 10px; }
+        .hint { color: #666; font-size: 0.9rem; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Dynamic Folder Creator</h1>
-        <p class="hint">Paste your tree structure (e.g., using ├─, └─, │). Folders should end in <code>/</code>.</p>
-        
-        <textarea id="treeInput" placeholder="Enter structure here...">
-ashtakoot-app/
-├─ api/
-│  └─ ashtakoot-score.js
-├─ src/
-│  ├─ App.jsx
-│  ├─ main.jsx
-│  ├─ styles.css
-│  └─ components/
-│     └─ ScoreCard.jsx
-├─ index.html
-└─ README.md</textarea>
-
-        <div class="controls">
-            <button onclick="processAndDownload()">Download .ZIP</button>
-            <span id="status"></span>
-        </div>
-    </div>
+    <h1>Text Tree to ZIP</h1>
+    <p class="hint">Indent with spaces or tabs. Folders should end with / or have children.</p>
+    
+    <textarea id="structureInput" placeholder="project/
+  src/
+    main.js
+    styles.css
+  index.html
+  README.md"></textarea>
+    
+    <br>
+    <button onclick="generateZip()">Generate and Download ZIP</button>
 
     <script>
-        async function processAndDownload() {
+        async function generateZip() {
             const zip = new JSZip();
-            const input = document.getElementById('treeInput').value;
-            const lines = input.split('\n').filter(l => l.trim() !== "");
-            const stack = []; // To keep track of current folder depth
+            const text = document.getElementById('structureInput').value;
+            const lines = text.split('\n');
+            
+            // Track the path at each indentation level
+            const pathStack = [];
 
             lines.forEach(line => {
-                // 1. Find the first alphanumeric character to determine indent level
-                const contentMatch = line.match(/[a-zA-Z0-9._-]/);
-                if (!contentMatch) return;
+                if (!line.trim()) return;
 
-                const indent = contentMatch.index;
-                const name = line.substring(indent).trim();
+                // Match leading spaces/tabs and the name
+                const match = line.match(/^(\s*)(.*)$/);
+                const indent = match[1].length;
+                const name = match[2].trim();
 
-                // 2. Adjust stack based on indentation
-                while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
-                    stack.pop();
-                }
+                // Determine level based on indentation (assuming 2 spaces per level)
+                // You can adjust the logic if your indentation varies
+                const level = Math.floor(indent / 2);
+                
+                // Adjust stack to current level
+                pathStack.length = level;
+                pathStack[level] = name;
 
-                // 3. Build the full path
-                const parentPath = stack.length > 0 ? stack[stack.length - 1].path : "";
-                const fullPath = parentPath + name;
+                const fullPath = pathStack.filter(Boolean).join('/');
 
-                if (name.endsWith('/')) {
-                    const folderPath = fullPath.endsWith('/') ? fullPath : fullPath + '/';
-                    zip.folder(folderPath);
-                    stack.push({ indent: indent, path: folderPath });
+                if (name.endsWith('/') || name.indexOf('.') === -1) {
+                    // Create folder
+                    zip.folder(fullPath);
                 } else {
-                    // Create an empty file
-                    zip.file(fullPath, ""); 
+                    // Create file (empty content)
+                    zip.file(fullPath, "");
                 }
             });
 
-            // 4. Generate and save
-            const blob = await zip.generateAsync({type: "blob"});
-            saveAs(blob, "project-structure.zip");
+            // Generate the ZIP file
+            const content = await zip.generateAsync({ type: "blob" });
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = "structure.zip";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
